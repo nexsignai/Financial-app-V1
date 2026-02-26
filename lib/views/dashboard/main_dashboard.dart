@@ -2,6 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../config/supabase_config.dart';
 import '../exchange/exchange_dashboard.dart';
 import '../remittance/customer_search_screen.dart';
 import '../tour/tour_screen.dart';
@@ -33,8 +35,12 @@ class MainDashboard extends StatelessWidget {
     );
 
     if (confirmed == true && context.mounted) {
+      if (isSupabaseConfigured) {
+        await Supabase.instance.client.auth.signOut();
+      }
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('is_logged_in', false);
+      await prefs.remove('admin_email');
 
       if (context.mounted) {
         Navigator.of(context).pushReplacement(

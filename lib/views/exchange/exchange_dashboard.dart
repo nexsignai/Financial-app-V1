@@ -10,6 +10,7 @@ import 'exchange_history_screen.dart';
 import 'daily_sold_screen.dart';
 import 'daily_sold_selection_screen.dart';
 import 'bulk_rate_update_screen.dart';
+import 'add_custom_currency_screen.dart';
 
 class ExchangeDashboard extends StatefulWidget {
   const ExchangeDashboard({super.key});
@@ -33,13 +34,37 @@ class _ExchangeDashboardState extends State<ExchangeDashboard> {
       _isLoading = true;
     });
 
-    // Simulate network delay
-    await Future.delayed(const Duration(milliseconds: 500));
+    await RateStore.instance.loadCustomFromPrefs();
+    await Future.delayed(const Duration(milliseconds: 200));
 
-    setState(() {
-      _rates = RateStore.instance.getRates();
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _rates = RateStore.instance.getRates();
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _confirmRemoveCustom(String code, String name) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove custom currency?'),
+        content: Text('Remove "$name" ($code)? It will disappear from the list.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await RateStore.instance.removeCustomRate(code);
+      _loadRates();
+    }
   }
 
   @override
@@ -48,6 +73,17 @@ class _ExchangeDashboardState extends State<ExchangeDashboard> {
       appBar: AppBar(
         title: const Text('Money Changer'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: () async {
+              final added = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(builder: (_) => const AddCustomCurrencyScreen()),
+              );
+              if (added == true) _loadRates();
+            },
+            tooltip: 'Add custom currency',
+          ),
           IconButton(
             icon: const Icon(Icons.history),
             onPressed: () {
@@ -106,6 +142,7 @@ class _ExchangeDashboardState extends State<ExchangeDashboard> {
                 itemCount: _rates.length,
                 itemBuilder: (context, index) {
                   final rate = _rates[index];
+                  final isCustom = RateStore.instance.isCustomCode(rate.code);
                   return _CurrencyCard(
                     rate: rate,
                     onTap: () {
@@ -124,6 +161,9 @@ class _ExchangeDashboardState extends State<ExchangeDashboard> {
                         ),
                       ).then((_) => _loadRates());
                     },
+                    onRemove: isCustom
+                        ? () => _confirmRemoveCustom(rate.code, rate.name)
+                        : null,
                   );
                 },
               ),
@@ -136,11 +176,13 @@ class _CurrencyCard extends StatelessWidget {
   final MockCurrencyRate rate;
   final VoidCallback onTap;
   final VoidCallback onDailySold;
+  final VoidCallback? onRemove;
 
   const _CurrencyCard({
     required this.rate,
     required this.onTap,
     required this.onDailySold,
+    this.onRemove,
   });
 
   @override
@@ -156,11 +198,24 @@ class _CurrencyCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Flag Emoji
-              Text(
-                rate.flagEmoji,
-                style: const TextStyle(fontSize: 42),
-                textAlign: TextAlign.center,
+              // Flag and remove (for custom)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    rate.flagEmoji,
+                    style: const TextStyle(fontSize: 42),
+                  ),
+                  if (onRemove != null) ...[
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.delete_outline, size: 20, color: Colors.grey),
+                      onPressed: onRemove,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 8),
 

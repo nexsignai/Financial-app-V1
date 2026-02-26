@@ -16,34 +16,30 @@ From the project root (`financial_app/`):
 # Install dependencies
 flutter pub get
 
-# Build with Supabase (replace with your project values)
-flutter build web --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
+# Production build with Supabase (uses HTML/CanvasKit, not WASM)
+flutter build web --no-wasm-dry-run \
+  --dart-define=SUPABASE_URL=https://YOUR_PROJECT.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=YOUR_ANON_KEY
 
-# Or build without Supabase (app works with in-memory store)
-flutter build web
+# Or build without Supabase (app works with in-memory store, login will show "Supabase not configured")
+flutter build web --no-wasm-dry-run
 ```
 
-Output is in **`build/web/`** (static files: `index.html`, `main.dart.js`, assets).
+- **`--no-wasm-dry-run`** avoids WASM compatibility warnings and keeps the build on the standard HTML/CanvasKit renderer (no WASM).
+- **Supabase values** are injected at build time via `--dart-define`; never commit real keys. Use env vars or CI secrets in production (e.g. `SUPABASE_URL` / `SUPABASE_ANON_KEY`).
+
+Output is in **`build/web/`**. The contents of **`web/`** (including `vercel.json` and `_redirects`) are copied into `build/web/` so SPA routing works after deploy.
 
 ## 3. Deploy as website
 
 ### Option A: Vercel
 
-1. Install Vercel CLI: `npm i -g vercel`
-2. From project root, deploy the built folder:
+1. Build locally (see step 2 above). The **`web/vercel.json`** is copied into **`build/web/`** automatically, so SPA rewrites are already in the deploy folder.
+2. Deploy the built folder:
    ```bash
    cd build/web && vercel --prod
    ```
-   Or: **Vercel Dashboard → New Project → Import** and set:
-   - **Root Directory:** `financial_app`
-   - **Build Command:** `flutter build web` (requires Flutter in Vercel environment; otherwise build locally and set **Output Directory** to `build/web` after a script that runs `flutter build web`)
-
-   Simpler: build locally, then deploy the built folder:
-   ```bash
-   cp vercel.json build/web/
-   cd build/web && vercel --prod
-   ```
-   (Copying `vercel.json` into `build/web` enables SPA rewrites.)
+   Or: **Vercel Dashboard → New Project → Deploy** and upload or connect repo; set **Output Directory** to `build/web` and **Build Command** to your `flutter build web ...` with dart-defines (use env vars for secrets).
 
 ### Option B: Netlify
 
@@ -62,21 +58,14 @@ flutter build web
 firebase deploy
 ```
 
-### SPA routing (all routes → index.html)
+### SPA routing (no 404 on refresh)
 
-For Vercel, add **`vercel.json`** in the **root that contains the deployed files** (e.g. inside `build/web` if you deploy that folder):
+The repo already includes:
 
-```json
-{
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
-}
-```
+- **`web/vercel.json`** – rewrites all routes to `/index.html` (Vercel). Flutter copy puts it in `build/web/`.
+- **`web/_redirects`** – Netlify rule `/* /index.html 200`. Also copied to `build/web/`.
 
-For Netlify, add **`build/web/_redirects`** (or **`netlify.toml`** in project root with `publish = "build/web"`):
-
-```
-/*    /index.html   200
-```
+So after `flutter build web`, **`build/web/`** is ready for both Vercel and Netlify without extra steps.
 
 ## 4. Verify after deploy
 

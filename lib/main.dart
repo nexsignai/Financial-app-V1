@@ -9,9 +9,6 @@ import 'providers/history_store.dart';
 import 'views/dashboard/main_dashboard.dart';
 import 'views/auth/login_screen.dart';
 
-// Set this to true to run without Firebase (mock mode)
-const bool useMockMode = true;
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,12 +18,6 @@ void main() async {
       anonKey: supabaseAnonKey,
     );
     await HistoryStore.instance.loadFromSupabase();
-  }
-
-  // Initialize Firebase only if not in mock mode
-  if (!useMockMode) {
-    // Uncomment when Firebase is configured:
-    // await Firebase.initializeApp();
   }
 
   runApp(
@@ -109,12 +100,20 @@ class _AppInitializerState extends State<AppInitializer> {
   }
 
   Future<void> _checkLoginStatus() async {
-    final prefs = await SharedPreferences.getInstance();
-    final isLoggedIn = prefs.getBool('is_logged_in') ?? false;
-    setState(() {
-      _isLoggedIn = isLoggedIn;
-      _isLoading = false;
-    });
+    final bool isLoggedIn;
+    if (isSupabaseConfigured) {
+      // Login state from Supabase session only; no credentials stored in app.
+      isLoggedIn = Supabase.instance.client.auth.currentSession != null;
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      isLoggedIn = prefs.getBool('is_logged_in') ?? false;
+    }
+    if (mounted) {
+      setState(() {
+        _isLoggedIn = isLoggedIn;
+        _isLoading = false;
+      });
+    }
   }
 
   @override

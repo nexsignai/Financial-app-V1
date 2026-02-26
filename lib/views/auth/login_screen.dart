@@ -1,7 +1,6 @@
 // lib/views/auth/login_screen.dart
 
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../config/supabase_config.dart';
@@ -56,10 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('is_logged_in', true);
-      await prefs.setString('admin_email', email);
-
+      // No login state stored in app; Supabase session is the single source of truth.
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const MainDashboard()),
